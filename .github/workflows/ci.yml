@@ -1,0 +1,72 @@
+# =============================================================================
+# CI: lint + generate source data + (optional) run the Snowflake pipeline and
+# reconciliation tests. The Snowflake job only runs when the repo has been
+# configured (variable RUN_SNOWFLAKE_TESTS=true + SNOWFLAKE_* secrets).
+# =============================================================================
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  static-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Python dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install sqlfluff
+
+      - name: Lint SQL (non-blocking)
+        run: sqlfluff lint snowflake/ --dialect snowflake || true
+
+      - name: Generate synthetic source data
+        run: python data_generation/generate_all.py
+
+      - name: Validate generated CSVs exist
+        run: |
+          test -f data_output/salesforce/sf_accounts.csv
+          test -f data_output/dynamics_ax/ax_customers.csv
+          test -f data_output/powerbill/pb_invoices.csv
+
+      - name: Upload generated CSVs
+        uses: actions/upload-artifact@v4
+        with:
+          name: source-csvs
+          path: data_output/
+          retention-days: 7
+
+  reconcile:
+    runs-on: ubuntu-latest
+    needs: static-checks
+    if: ${{ vars.RUN_SNOWFLAKE_TESTS == 'true' }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Generate data
+        run: python data_generation/generate_all.py
+      - name: Run pipeline + reconciliation tests
+        run: python snowflake/orchestration/run_pipeline.py
+        env:
+          SNOWFLAKE_ACCOUNT:   ${{ secrets.SNOWFLAKE_ACCOUNT }}
+          SNOWFLAKE_USER:       ${{ secrets.SNOWFLAKE_USER }}
+          SNOWFLAKE_PASSWORD:   ${{ secrets.SNOWFLAKE_PASSWORD }}
+          SNOWFLAKE_ROLE:       ${{ secrets.SNOWFLAKE_ROLE }}
+          SNOWFLAKE_WAREHOUSE:  ${{ secrets.SNOWFLAKE_WAREHOUSE }}
+          SNOWFLAKE_DATABASE:   ${{ secrets.SNOWFLAKE_DATABASE }}

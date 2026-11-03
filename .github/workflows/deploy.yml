@@ -1,0 +1,46 @@
+# =============================================================================
+# CD: deploy the pipeline to the prod Snowflake environment on merge to main.
+# The `prod` GitHub Environment requires manual approval (reviewers) before the
+# job runs -> enforces separation of duties (SOX/ITGC aligned).
+# =============================================================================
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy-prod:
+    runs-on: ubuntu-latest
+    environment:
+      name: prod
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Regenerate source data
+        run: python data_generation/generate_all.py
+
+      - name: Provision + build + reconcile (Bronze -> Gold -> tests)
+        run: python snowflake/orchestration/run_pipeline.py
+        env:
+          SNOWFLAKE_ACCOUNT:   ${{ secrets.SNOWFLAKE_ACCOUNT }}
+          SNOWFLAKE_USER:       ${{ secrets.SNOWFLAKE_USER }}
+          SNOWFLAKE_PASSWORD:   ${{ secrets.SNOWFLAKE_PASSWORD }}
+          SNOWFLAKE_ROLE:       ${{ secrets.SNOWFLAKE_ROLE }}
+          SNOWFLAKE_WAREHOUSE:  ${{ secrets.SNOWFLAKE_WAREHOUSE }}
+          SNOWFLAKE_DATABASE:   ${{ secrets.SNOWFLAKE_DATABASE }}
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "Production deployment failed during reconciliation checks. See job logs."
+          exit 1

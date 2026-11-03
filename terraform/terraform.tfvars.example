@@ -1,0 +1,12 @@
+# Copy to terraform.tfvars (gitignored) and fill in.
+# Provide the password via env: export TF_VAR_snowflake_password='...'
+
+snowflake_account = "xy12345.eu-central-1.aws"
+snowflake_user     = "terraform_user"
+snowflake_role     = "ACCOUNTADMIN"
+
+database_name       = "RECON_PLATFORM"
+warehouse_size      = "SMALL"
+credit_quota_load      = 25
+credit_quota_transform  = 40
+credit_quota_reporting  = 15
