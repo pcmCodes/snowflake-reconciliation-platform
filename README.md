@@ -10,7 +10,7 @@ Built end-to-end with a **medallion architecture** (Bronze → Silver → Gold),
 
 ## Why this project exists
 
-A portfolio piece demonstrating the skills a Senior Data Engineer / Snowflake practitioner is hired for: not a toy notebook, but a layered, governed, testable, deployable data platform with documentation an auditor could read.
+A portfolio piece demonstrating the skills as a Data Engineer / Snowflake practitioner will do: not a toy notebook, but a layered, governed, testable, deployable data platform with documentation an auditor could read.
 
 ### Skills demonstrated (mapped to a typical senior DE role)
 
